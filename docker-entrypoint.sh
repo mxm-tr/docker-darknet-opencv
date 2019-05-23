@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 echo "Running darknet with args $@"
 
+. /docker-environment.sh
 
-
-export LD_LIBRARY_PATH=/usr/local/lib/:$LD_LIBRARY_PATH;
-
-./darknet "$@"	
+python3 /python-test.py "$@"	
 
 # case "$1" in
 #   detect)

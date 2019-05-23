@@ -1,3 +1,6 @@
 [submodule "darknet"]
 	path = darknet
 	url = https://github.com/pjreddie/darknet
+[submodule "darknet-python"]
+	path = darknet-python
+	url = https://github.com/madhawav/YOLO3-4-Py

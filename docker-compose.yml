@@ -1,0 +1,65 @@
+version: '2.3'
+
+services:
+  video-streaming-server:
+    # Rtmp to http streaming server
+    # https://github.com/alfg/docker-nginx-rtmp
+    image:
+      alfg/nginx-rtmp:latest
+    ports:
+      - 1935:1935
+      - 8080:80
+      - 8443:443
+
+    # volumes:
+    #   - type: bind
+    #     source: ./certs
+    #     target: /opt/certs
+
+  # camera-emulator-webcam:
+  #   build: ./ffmpeg_video_stream
+  #   image: camera-emulator:latest
+  #   restart: always
+  #   environment:
+  #     STREAM_FROM: udp://0.0.0.0:12345
+  #     STREAM_TO: rtmp://video-streaming-server:1935/stream/webcam-original
+  #   ports:
+  #     - 12345:12345
+
+  # camera-emulator-video-file:
+  #   build: ./ffmpeg_video_stream
+  #   image: camera-emulator:latest
+  #   restart: always
+  #   environment:
+  #     STREAM_FROM: /video_file.mp4
+  #     STREAM_TO: rtmp://video-streaming-server:1935/stream/video-file-original
+  #   volumes:
+  #     - type: bind
+  #       source: ./images/video_file.mp4
+  #       target: /video_file.mp4
+
+  darknet-video-webcam:
+    build: .
+    runtime: nvidia
+    image: darknet:latest
+    restart: always
+    volumes:
+      - type: bind
+        source: ./python-test.py
+        target: /python-test.py
+    environment:
+      OUTPUT_URI: rtmp://video-streaming-server:1935/stream/webcam-processed
+      VIDEO_SOURCE: rtmp://video-streaming-server:1935/stream/webcam-original
+
+  # darknet-video-file:
+  #   build: .
+  #   runtime: nvidia
+  #   image: darknet:latest
+  #   restart: always
+  #   volumes:
+  #     - type: bind
+  #       source: ./python-test.py
+  #       target: /python-test.py
+  #   environment:
+  #     OUTPUT_URI: rtmp://video-streaming-server:1935/stream/video-file-processed
+  #     VIDEO_SOURCE: rtmp://video-streaming-server:1935/stream/video-file-original

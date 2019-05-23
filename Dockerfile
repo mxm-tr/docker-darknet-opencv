@@ -1,4 +1,4 @@
-FROM datamachines/cuda_tensorflow_opencv:9.0_1.12.0_4.1.0-0.3
+FROM nvidia/cuda:9.2-devel-ubuntu16.04
 # tensorflow-gpu requires nvidia-docker v2 to run
 # and is based of nvidia's CUDA 9.0 Docker image running on Ubuntu 16.04
 #
@@ -6,9 +6,76 @@ FROM datamachines/cuda_tensorflow_opencv:9.0_1.12.0_4.1.0-0.3
 
 ENV OPENCV_VERSION 3.4.6
 
+ENV DEBIAN_FRONTEND noninteractive
+ENV NVIDIA_VISIBLE_DEVICES all
+ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
+
+RUN apt-get update && apt-get install software-properties-common -y\
+    && add-apt-repository ppa:jonathonf/ffmpeg-4 -y \
+    && apt-get update -y \
+    && apt-get install ffmpeg libav-tools x264 x265 -y
+
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
+    build-essential \
+    clang \
+    cmake \
+    cuda-cublas-dev-9.0 \
+    cuda-cufft-dev-9.0 \
+    cuda-npp-dev-9.0 \
+    gfortran \
+    git \
+    imagemagick \
+    libatk-adaptor \
+    libatlas-base-dev \
+    libavcodec-dev \
+    libavdevice-dev \
+    libavformat-dev \
+    libavresample-dev \
+    libavutil-dev \
+    libboost-all-dev \
+    libc6-dev-i386 \
+    libcanberra-gtk-module \
+    libdc1394-22-dev \
+    libfreetype6-dev \
+    libgphoto2-dev \
+    libgstreamer-plugins-base1.0-dev \
+    libgtk-3-dev \
+    libgtk2.0-dev \
+    libhdf5-serial-dev \
+    libjasper-dev \
+    libjpeg-dev \
+    libjpeg8-dev \
+    libpng-dev \
+    libpng12-dev \
+    libswscale-dev \
+    libtbb-dev \
+    libtbb2 \
+    libtiff-dev \
+    libtiff5-dev \
+    libv4l-dev \
+    libx264-dev \
+    libx32gcc-4.8-dev \
+    libxvidcore-dev \
+    libzmq3-dev \
+    pkg-config \
+    python-lxml \
+    python-numpy \
+    python-pil \
+    python-pip \
+    python-tk \
+    python3-dev \
+    python3-pip \
+    qt4-default \
+    software-properties-common \
+    unzip \
+    vim \
+    wget \
+    x11-apps
+
+RUN pip3 install --upgrade pip
+
 # Download & build OpenCV
-RUN rm -rf /usr/local/src/opencv* \
-  && apt-get -qq update \
+RUN apt-get -qq update \
   && mkdir -p /usr/local/src \
   && cd /usr/local/src \
   && git clone https://github.com/opencv/opencv.git \
@@ -70,31 +137,56 @@ RUN rm -rf /usr/local/src/opencv* \
 # Minimize image size 
 RUN (apt-get autoremove -y; apt-get autoclean -y)
 
+# OPTIONAL: Install CUDNN
+# Download your own CUDNN Library here:
+# https://developer.nvidia.com/rdp/cudnn-download
+# Installation guide here:
+# https://docs.nvidia.com/deeplearning/sdk/cudnn-install/index.html
+ADD ./libcudnn.deb /
+ADD ./libcudnn-dev.deb /
+
+RUN dpkg -i /libcudnn.deb && dpkg -i /libcudnn-dev.deb && rm /libcudnn.deb /libcudnn-dev.deb
+
+# Check the libavcodec installation: it has to be from ffmpeg
+#RUN grep "This file is part of" `pkg-config --variable=includedir libavcodec`/libavcodec/avcodec.h
+#RUN ffmpeg -version
+
+
 ## Darknet installation
-# Option 1: Clone it directly
-#RUN git clone https://github.com/pjreddie/darknet
-
-# Option 2: Copy the darknet directory
-ADD ./darknet /darknet
-
-# OPTIONAL: Compile darknet with GPU support
-RUN cd /darknet && sed -i "s/GPU=0/GPU=1/" Makefile
-
-# OPTIONAL: Compile darknet with OpenCV
-RUN cd /darknet && sed -i "s/OPENCV=0/OPENCV=1/" Makefile
-
-# Compile darknet
-RUN cd /darknet && make
 
 # Optional: download its pre-trained yolo v3 dnn
-RUN cd /darknet && wget https://pjreddie.com/media/files/yolov3.weights
+RUN mkdir -p /darknet && cd /darknet && wget https://pjreddie.com/media/files/yolov3.weights
 
+# Copy the darknet directory
+ADD ./darknet /darknet
+
+# (TODO: check this) Link the cuda lib
+RUN cd /darknet && ln -s /usr/lib/x86_64-linux-gnu/libcuda.so.* /usr/local/cuda-9.2/lib64/libcuda.so
+
+# Compile darknet:
+# Change the first lines in the ./darknet/Makefile to enable GPU
+# and/or other hardware acceleration support
+RUN cd /darknet && make
+# This link is to enable the python bindings
+RUN ln -s /darknet ~/.darknet
+
+# Copy over the bash entrypoints
+ADD docker-environment.sh /docker-environment.sh
 ADD docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod 755 /docker-environment.sh
 RUN chmod 755 /docker-entrypoint.sh
+
+# Copy and install the darknet-python module and its dependencies
+ADD ./darknet-python /darknet-python
+RUN python3 -m pip install setuptools numpy opencv-contrib-python
+RUN . /docker-environment.sh && cd /darknet-python && python3 -m pip install .
+
+# Optional: Install moviepy to write images on rtmp (see python example) 
+RUN python3 -m pip install moviepy
 
 WORKDIR /darknet
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD [""]
 
 # Labels -- kept at the end to maximize layer reuse when possible
-LABEL description="Preconfigured Ubuntu 16.04 with Nvidia CUDA enabled version of TensorFlow and OpenCV3, with darknet and a yolo DNN on the top of it"
+LABEL description="Preconfigured Ubuntu 16.04 with Nvidia CUDA enabled version of TensorFlow and OpenCV3, with darknet and a yolo DNN on the top of it. Also contains python bindings to opencv and darknet"
