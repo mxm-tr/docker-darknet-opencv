@@ -1,17 +1,26 @@
 version: '2.3'
-# Test:
-# ./darknet detector test /cfg/coco.data /cfg/yolov3-tiny.cfg /weigths/yolov3-tiny-train_final.weights /images/75Crrid.jpg -out /images/test.2.jpg   -thresh 0.25
-# for file in $(find /images -type f); do echo $file;  ./darknet detector test /cfg/coco.data /cfg/yolov3-tiny.cfg /weigths/yolov3-tiny-train_final.weights $file -thresh 0.1 -out $file.pred.jpg; done
 services:
+  video-streaming-server:
+    # Rtmp to http streaming server
+    # https://github.com/alfg/docker-nginx-rtmp
+    image:
+      alfg/nginx-rtmp:latest
+    ports:
+      - 1935:1935
+      - 8080:80
+      - 8443:443
+    # OPTIONAL: Use certificates for SSL encryption
+    # volumes:
+    #   - type: bind
+    #     source: ./certs
+    #     target: /opt/certs
 
   darknet-video-webcam:
     build: .
     runtime: nvidia
     image: darknet-classic:latest
+    restart: always
     volumes:
-      - type: bind
-        source: ./docker-entrypoint.sh
-        target: /docker-entrypoint.sh
       - type: bind
         source: ./python-test.py
         target: /python-test.py
@@ -25,23 +34,19 @@ services:
         source: ./weights
         target: /weights
       - type: bind
-        source: ./images
-        target: /images
-      - type: bind
         source: /tmp/.X11-unix
         target: /tmp/.X11-unix
       - type: bind
         source: /tmp/.docker.xauth
         target: /tmp/.docker.xauth
+
     environment:
       USE_ENV: 1
-      # SOURCE_URI: /dev/video0
-      SOURCE_URI: /images/*
+      OUTPUT_URI: rtmp://video-streaming-server:1935/stream/webcam-processed
+      SOURCE_URI: /dev/video0
       DARKNET_CFG_PATH: /cfg/yolov3-tiny.cfg
       DARKNET_WEIGHTS_PATH: /weights/yolov3-tiny.weights
       DARKNET_COCO_DATA_PATH: /cfg/coco.data
       SHOW_OUTPUT: 1
-      # STREAM_SOURCE: 1
+      STREAM_SOURCE: 1
       DISPLAY: $DISPLAY
-    devices:
-      - /dev/video0:/dev/video0
