@@ -35,13 +35,30 @@ services:
         target: /tmp/.docker.xauth
     environment:
       USE_ENV: 1
-      # SOURCE_URI: /dev/video0
-      SOURCE_URI: /images/*
+
+      # Source definition:
+      # Whether to stream the source (comment if SOURCE_URI points to files)
+      STREAM_SOURCE: 1
+
+      # From a remote stream
+      # SOURCE_URI: http://10.0.0.60:8080/video
+      # From file(s)
+      # SOURCE_URI: /images/*
+      # From a video capture device
+      SOURCE_URI: /dev/video0
+
+      # DNN structure to use:
       DARKNET_CFG_PATH: /cfg/yolov3-tiny.cfg
+
+      # DNN weights to use:
       DARKNET_WEIGHTS_PATH: /weights/yolov3-tiny.weights
+
+      # Additional configuration, pointing to class names and more
       DARKNET_COCO_DATA_PATH: /cfg/coco.data
+
+      # Show the output in a window
       SHOW_OUTPUT: 1
-      # STREAM_SOURCE: 1
       DISPLAY: $DISPLAY
+
     devices:
       - /dev/video0:/dev/video0
