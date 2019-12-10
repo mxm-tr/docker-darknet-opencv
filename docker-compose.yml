@@ -41,7 +41,7 @@ services:
       STREAM_SOURCE: 1
 
       # From a remote stream
-      # SOURCE_URI: http://10.0.0.60:8080/video
+      # SOURCE_URI: http://192.168.1.89:8080/video
       # From file(s)
       # SOURCE_URI: /images/*
       # From a video capture device
